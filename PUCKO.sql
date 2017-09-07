@@ -18,8 +18,6 @@ Incident(PKEY[Namn], PKEY[Nr], Plats, *Medelvärde observationers grad)
 
 Rapport(PKEY[Datm, Titel], *Radantal, *Antal_uppföljningar) FK[Incident + Agent]
 
-
-
 */
 
 drop database a15oloal;
@@ -60,32 +58,65 @@ create table Hjälpmedelstyper(
 #Kan inte hantera partiell nedärvning och kan bli oflexibelt, men ger bäst prestanda när sökningar görs. Förväntning: total nedärvning.
 create table Gruppledare(
 	Namn char(1),
-    Nr smallint,
+    Nr tinyint(1),
     Lön int,
     Unamn varchar(25),
     lyckade_operationer int,
     n_operationer int,
     andel_lyckade_op decimal(3, 2),
-    CHECK(Lön >= 0),
-    CHECK(n_operationer >= 0),
+    CHECK(Namn != 'Leif Loket Olsson' AND Namn != 'Greger Puckowitz' AND Namn != 'Greve Dracula'),
+    CHECK(Lön >= 12000 AND Lön <= 35000),
+    CHECK(Nr >= 0 AND Nr != 13 AND Nr <= 99),
     CHECK(lyckade_operationer >= 0),
     primary key(Namn, Nr)
 )engine=innodb;
 
+/* Trigger to set Lön to 13k if no value is inserted on Gruppledare. */
+DELIMITER //
+ 
+CREATE TRIGGER LÖNECHECK_Gruppledare BEFORE INSERT ON Gruppledare
+FOR EACH ROW BEGIN
+ 
+  IF(NEW.Lön IS NULL) THEN
+    SET NEW.Lön=13000;
+  END IF;
+ 
+END;
+ 
+//
+DELIMITER ;
+
+
 create table Fältagent(
 	Namn char(1),
-    Nr smallint,
+    Nr tinyint(1),
     Lön int,
     Unamn varchar(25),
     Kompetens varchar(30),
-    Specialite varchar(30),
+    Specialite varchar(30) NOT NULL,
     n_operationer int,
     lyckade_operationer int,
-    CHECK(Lön >= 0),
-    CHECK(n_operationer >= 0),
+    CHECK(Lön >= 12000 AND Lön <= 25000),
+    CHECK(Namn != 'Leif Loket Olsson' AND Namn != 'Greger Puckowitz' AND Namn != 'Greve Dracula'),
+    CHECK(Nr > 0 AND Nr != 13 AND Nr <= 99),
     CHECK(lyckade_operationer >= 0),
     primary key(Namn, Nr)
 )engine=innodb;
+
+/* Trigger to set Lön to 13k if no value is inserted on Fältagent. */
+DELIMITER //
+ 
+CREATE TRIGGER LÖNECHECK_Fältagent BEFORE INSERT ON Fältagent
+FOR EACH ROW BEGIN
+ 
+  IF(NEW.Lön IS NULL) THEN
+    SET NEW.Lön=13000;
+  END IF;
+ 
+END;
+ 
+//
+DELIMITER ;
 
 create table Operation(
     Kodnamntyp char(3),
@@ -94,8 +125,9 @@ create table Operation(
     Slutdatum date,
     Framgång_andel float(3),
     Gruppledarnamn char(1),
-    Gruppledarnr smallint,
+    Gruppledarnr tinyint(1),
     CHECK (Kodnamntyp LIKE '[A-Z][0-9][0-9]'),
+    CHECK (DAY(Slutdatum) > DAY(Startdatum)), ## Lösning om slutdatum är i januari och startdatum i december?
     primary key(Kodnamntyp, Startdatum, Incidentnamn),
     foreign key(Incidentnamn) references Incident(Namn),
     foreign key (Gruppledarnamn, Gruppledarnr) references Gruppledare(Namn, Nr)
@@ -119,11 +151,28 @@ create table Operationers_hjälpmedel(
     foreign key(Kodnamntyp, Startdatum, Incidentnamn) references Operation(Kodnamntyp, Startdatum, Incidentnamn)
 )engine=innodb;
 
+
+
+/* Trigger för att hantera om start- och slutdatum är mindre än 5 veckor mellan varandra */
+DELIMITER //
+ 
+CREATE TRIGGER DATUMCHECK_Operation BEFORE INSERT ON Operation
+FOR EACH ROW BEGIN
+ 
+  IF((WEEK(NEW.Slutdatum) - WEEK(NEW.Startdatum)) > 5 ) THEN
+    SET NEW.Slutdatum = (DATE_ADD(NEW.Startdatum, INTERVAL 5 WEEK));
+  END IF;
+ 
+END;
+ 
+//
+DELIMITER ;
+
 create table Fältagenters_hjälpmedel(
 	Hjälpmedelnamn char(1),
     Hjälpmedelnr smallint,
     Fältagentnamn char(1),
-    Fältagentnr smallint,
+    Fältagentnr tinyint(1),
     primary key(Hjälpmedelnamn, Hjälpmedelnr, Fältagentnamn, Fältagentnr),
     foreign key(Hjälpmedelnamn, Hjälpmedelnr) references Hjälpmedel(Namn, Nr),
     foreign key(Fältagentnamn, Fältagentnr) references Fältagent(Namn, Nr)
@@ -131,7 +180,7 @@ create table Fältagenters_hjälpmedel(
 
 create table Fältagenter_operationer(
     Fältagentnamn char(1),
-    Fältagentnr smallint,
+    Fältagentnr tinyint(1),
     Kodnamntyp char(1),
     Startdatum date,
     Incidentnamn varchar(30),
@@ -146,9 +195,9 @@ create table Rapport(
     n_uppföljningar int,
     n_rader int,
     Fältagentnamn char(1),
-    Fältagentnr smallint,
+    Fältagentnr tinyint(1),
     Gruppledarnamn char(1),
-    Gruppledarnr smallint,
+    Gruppledarnr tinyint(1),
     Incidentnamn varchar(30),
     CHECK(n_uppföljningar >= 0),
     primary key(Datum, Titel),
@@ -156,3 +205,7 @@ create table Rapport(
     foreign key (Gruppledarnamn, Gruppledarnr) references Gruppledare(Namn, Nr),
     foreign key (Incidentnamn) references Incident(Namn)
 )engine=innodb;
+
+insert into Incident (Namn, Nr, Plats) values ('Katastrof', '505', 'Skövde');
+insert into Operation (Kodnamntyp, Startdatum, Incidentnamn, Slutdatum) values ('ABC', '2014-04-01', 'Katastrof', '2014-08-02');
+select * from Operation;
