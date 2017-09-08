@@ -33,24 +33,25 @@ create table Incident(
     primary key(Namn)
 )engine=innodb;
 
-create table Hjälpmedel(
-	Namn char(1),
-    Nr smallint,
-    Beskrivning varchar(30),
-    Typ varchar(15),
-    Ordningsnummer smallint,
-    primary key(Namn, Nr)
-)engine=innodb;
-
-# Extra tabell för att lagra ordningsnummer för olika typer.
+# Extra tabell för att lagra ordningsnummer och typ av redskap för olika typer. Typkod är kod för objektet.
 create table Hjälpmedelstyper(
-    Typ varchar(15),
+	Typkod smallint,
+    Typ varchar(20),
     Ordningsnummer smallint,
-    Hjälpmedelnamn char(1),
+    Hjälpmedelnamn varchar(20),
     Hjälpmedelnr smallint,
     CHECK(Ordningsnummer >= 1 AND Ordningsnummer <= 15),
-    primary key(Typ),
-    foreign key(Hjälpmedelnamn, Hjälpmedelnr) references Hjälpmedel(Namn, Nr)
+    primary key(Typkod)
+)engine=innodb;
+
+create table Hjälpmedel(
+	Namn varchar(20),
+    Nr smallint,
+    Beskrivning varchar(30),
+    Typ_n smallint,
+    Ordningsnummer smallint,
+    primary key(Namn, Nr),
+    foreign key(Typ_n) references Hjälpmedelstyper(Typkod)
 )engine=innodb;
 
 #Using Concrete Table Inheritance martinFowler.com
@@ -89,7 +90,7 @@ DELIMITER ;
 
 create table Fältagent(
 	Namn char(1),
-    Nr tinyint(1),
+    Nr tinyint(2),
     Lön int,
     Unamn varchar(25),
     Kompetens varchar(30),
@@ -97,7 +98,7 @@ create table Fältagent(
     n_operationer int,
     lyckade_operationer int,
     CHECK(Lön >= 12000 AND Lön <= 25000),
-    CHECK(Namn != 'Leif Loket Olsson' AND Namn != 'Greger Puckowitz' AND Namn != 'Greve Dracula'),
+    CHECK(Namn LIKE '[A-Ö][1-99]' AND Namn != 'Leif Loket Olsson' AND Namn != 'Greger Puckowitz' AND Namn != 'Greve Dracula'), # Nödvändigt med två constraints?
     CHECK(Nr > 0 AND Nr != 13 AND Nr <= 99),
     CHECK(lyckade_operationer >= 0),
     primary key(Namn, Nr)
@@ -127,12 +128,13 @@ create table Operation(
     Gruppledarnamn char(1),
     Gruppledarnr tinyint(1),
     CHECK (Kodnamntyp LIKE '[A-Z][0-9][0-9]'),
-    CHECK (DAY(Slutdatum) > DAY(Startdatum)), ## Lösning om slutdatum är i januari och startdatum i december?
+    CHECK ((DAY(Slutdatum) > DAY(Startdatum) AND (YEAR(Slutdatum) = YEAR(Startdatum))) OR (YEAR(Slutdatum) > YEAR(Startdatum))),
     primary key(Kodnamntyp, Startdatum, Incidentnamn),
     foreign key(Incidentnamn) references Incident(Namn),
     foreign key (Gruppledarnamn, Gruppledarnr) references Gruppledare(Namn, Nr)
 )engine=innodb;
 
+# Brytit upp Operationer till Operationstyper för att minska redundans
 create table Operationstyper(
 	Kodnamntyp char(3),
     Operationstyp varchar(40),
@@ -141,7 +143,7 @@ create table Operationstyper(
 )engine=innodb;
 
 create table Operationers_hjälpmedel(
-	Hjälpmedelnamn char(1),
+	Hjälpmedelnamn varchar(20),
     Hjälpmedelnr smallint,
     Kodnamntyp char(1),
     Startdatum date,
@@ -169,7 +171,7 @@ END;
 DELIMITER ;
 
 create table Fältagenters_hjälpmedel(
-	Hjälpmedelnamn char(1),
+	Hjälpmedelnamn varchar(20),
     Hjälpmedelnr smallint,
     Fältagentnamn char(1),
     Fältagentnr tinyint(1),
@@ -207,5 +209,5 @@ create table Rapport(
 )engine=innodb;
 
 insert into Incident (Namn, Nr, Plats) values ('Katastrof', '505', 'Skövde');
-insert into Operation (Kodnamntyp, Startdatum, Incidentnamn, Slutdatum) values ('ABC', '2014-04-01', 'Katastrof', '2014-08-02');
+insert into Operation (Kodnamntyp, Startdatum, Incidentnamn, Slutdatum) values ('ABC', '2015-01-01', 'Katastrof');
 select * from Operation;
