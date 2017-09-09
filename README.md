@@ -1,2 +1,2 @@
 # PUCKO-database
-Working on a database for the fictional organisation PUCKO. 
+Working on a system (database and web application) for the fictional organisation PUCKO. 
