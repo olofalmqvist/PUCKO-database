@@ -120,7 +120,8 @@ END;
 DELIMITER ;
 
 create table Operation(
-    Kodnamntyp char(3),
+    Kodnamn char(3),
+    Operationstyp varchar(40),
     Startdatum date,
     Incidentnamn varchar(30),
     Slutdatum date,
@@ -129,11 +130,12 @@ create table Operation(
     Gruppledarnr tinyint(2),
     CHECK (Kodnamntyp LIKE '[A-Z][0-9][0-9]'),
     CHECK ((DAY(Slutdatum) > DAY(Startdatum) AND (YEAR(Slutdatum) = YEAR(Startdatum))) OR (YEAR(Slutdatum) > YEAR(Startdatum))),
-    primary key(Kodnamntyp, Startdatum, Incidentnamn),
+    primary key(Kodnamn, Operationstyp, Startdatum, Incidentnamn),
     foreign key(Incidentnamn) references Incident(Namn),
     foreign key (Gruppledarnamn, Gruppledarnr) references Gruppledare(Namn, Nr)
 )engine=innodb;
 
+/*
 # Brytit upp Operationer till Operationstyper för att minska redundans
 create table Operationstyper(
 	Kodnamntyp char(3),
@@ -141,16 +143,18 @@ create table Operationstyper(
     primary key (Kodnamntyp),
     foreign key (Kodnamntyp) references Operation(Kodnamntyp)
 )engine=innodb;
+*/
 
 create table Operationers_hjälpmedel(
 	Hjälpmedelnamn varchar(20),
     Hjälpmedelnr smallint,
-    Kodnamntyp char(1),
+    Kodnamn char(3),
+    Operationstyp varchar(40),
     Startdatum date,
     Incidentnamn varchar(30),
-    primary key(Hjälpmedelnamn, Hjälpmedelnr, Kodnamntyp, Startdatum, Incidentnamn),
+    primary key(Hjälpmedelnamn, Hjälpmedelnr, Kodnamn, Operationstyp, Startdatum, Incidentnamn),
     foreign key(Hjälpmedelnamn, Hjälpmedelnr) references Hjälpmedel(Namn, Nr),
-    foreign key(Kodnamntyp, Startdatum, Incidentnamn) references Operation(Kodnamntyp, Startdatum, Incidentnamn)
+    foreign key(Kodnamn, Operationstyp, Startdatum, Incidentnamn) references Operation(Kodnamn, Operationstyp, Startdatum, Incidentnamn)
 )engine=innodb;
 
 
@@ -183,12 +187,13 @@ create table Fältagenters_hjälpmedel(
 create table Fältagenter_operationer(
     Fältagentnamn char(1),
     Fältagentnr tinyint(2),
-    Kodnamntyp char(1),
+    Kodnamn char(3),
+    Operationstyp varchar(40),
     Startdatum date,
     Incidentnamn varchar(30),
-    primary key(Fältagentnamn, Fältagentnr, Kodnamntyp, Startdatum, Incidentnamn),
+    primary key(Fältagentnamn, Fältagentnr, Kodnamn, Operationstyp, Startdatum, Incidentnamn),
     foreign key(Fältagentnamn, Fältagentnr) references Fältagent(Namn, Nr), 
-    foreign key(Kodnamntyp, Startdatum, Incidentnamn) references Operation(Kodnamntyp, Startdatum, Incidentnamn)
+    foreign key(Kodnamn, Operationstyp, Startdatum, Incidentnamn) references Operation(Kodnamn, Operationstyp, Startdatum, Incidentnamn)
 )engine=innodb;
 
 create table Slutrapport(
@@ -204,7 +209,7 @@ create table Slutrapport(
     Gruppledarnr tinyint(2),
     Incidentnamn varchar(30),
     CHECK(n_uppföljningar >= 0),
-    CHECK((Typ = 'Ledningsrapport') OR (Typ = 'Fältrapport'))
+    CHECK((Typ = 'Ledningsrapport') OR (Typ = 'Fältrapport')),
     primary key(Datum, Titel),
     foreign key (Fältagentnamn, Fältagentnr) references Fältagent(Namn, Nr),
     foreign key (Gruppledarnamn, Gruppledarnr) references Gruppledare(Namn, Nr),
@@ -212,6 +217,6 @@ create table Slutrapport(
 )engine=innodb;
 
 insert into Incident (Namn, Nr, Plats) values ('Ulvahändelsen', 5, 'Töreboda');
-insert into Operation (Kodnamntyp, Startdatum, Slutdatum, Incidentnamn) values ('AB2', '2017-01-01', '2017-05-05', 'Ulvahändelsen');
+insert into Operation (Startdatum, Slutdatum, Incidentnamn) values ('2017-01-01', '2017-05-05', 'Ulvahändelsen');
 select * from Operation
 
