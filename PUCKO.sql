@@ -29,19 +29,16 @@ create table Incident(
     Namn varchar(30),
     Nr int UNIQUE NOT NULL,
     Plats varchar(30) NOT NULL,
-    medel_observationer int,
     primary key(Namn)
 )engine=innodb;
 
 # Extra tabell för att lagra ordningsnummer och typ av redskap för olika typer. Typkod är kod för objektet.
 create table Hjälpmedelstyper(
 	Typkod smallint,
+    Ordningsnummer tinyint(2),
     Typ varchar(20),
-    Ordningsnummer smallint,
-    Hjälpmedelnamn varchar(20),
-    Hjälpmedelnr smallint,
     CHECK(Ordningsnummer >= 1 AND Ordningsnummer <= 15),
-    primary key(Typkod)
+    primary key(Typkod, Ordningsnummer)
 )engine=innodb;
 
 create table Hjälpmedel(
@@ -49,23 +46,25 @@ create table Hjälpmedel(
     Nr smallint,
     Beskrivning varchar(30),
     Typ_n smallint,
-    Ordningsnummer smallint,
+    Ordningsnummer tinyint(2),
     primary key(Namn, Nr),
-    foreign key(Typ_n) references Hjälpmedelstyper(Typkod)
+    foreign key(Typ_n, Ordningsnummer) references Hjälpmedelstyper(Typkod, Ordningsnummer)
 )engine=innodb;
+
 
 #Using Concrete Table Inheritance martinFowler.com
 # https://martinfowler.com/eaaCatalog/concreteTableInheritance.html
 #Kan inte hantera partiell nedärvning och kan bli oflexibelt, men ger bäst prestanda när sökningar görs. Förväntning: total nedärvning.
 create table Gruppledare(
 	Namn char(1),
-    Nr tinyint(1),
+    Nr tinyint(2),
     Lön int,
-    Unamn varchar(25),
+    Förnamn varchar(25),
+    Efternamn varchar(25),
     lyckade_operationer int,
     n_operationer int,
     andel_lyckade_op decimal(3, 2),
-    CHECK(Namn != 'Leif Loket Olsson' AND Namn != 'Greger Puckowitz' AND Namn != 'Greve Dracula'),
+    CHECK(NOT (Förnamn = 'Leif Loket' AND Efternamn = 'Olsson') OR NOT (Förnamn = 'Greger' AND Efternamn = 'Puckowitz') OR NOT (Förnamn = 'Greve' AND Efternamn = 'Dracula')),
     CHECK(Lön >= 12000 AND Lön <= 35000),
     CHECK(Nr >= 0 AND Nr != 13 AND Nr <= 99),
     CHECK(lyckade_operationer >= 0),
@@ -92,13 +91,14 @@ create table Fältagent(
 	Namn char(1),
     Nr tinyint(2),
     Lön int,
-    Unamn varchar(25),
-    Kompetens varchar(30),
+    Förnamn varchar(25),
+    Efternamn varchar(25),
+    Kompetens varchar(30) NOT NULL,
     Specialite varchar(30) NOT NULL,
     n_operationer int,
     lyckade_operationer int,
     CHECK(Lön >= 12000 AND Lön <= 25000),
-    CHECK(Namn LIKE '[A-Ö][1-99]' AND Namn != 'Leif Loket Olsson' AND Namn != 'Greger Puckowitz' AND Namn != 'Greve Dracula'), # Nödvändigt med två constraints?
+    CHECK(NOT(Förnamn = 'Leif Loket' AND Efternamn = 'Olsson') OR NOT (Förnamn = 'Greger' AND Efternamn = 'Puckowitz') OR NOT (Förnamn = 'Greve' AND Efternamn = 'Dracula')),
     CHECK(Nr > 0 AND Nr != 13 AND Nr <= 99),
     CHECK(lyckade_operationer >= 0),
     primary key(Namn, Nr)
@@ -124,9 +124,9 @@ create table Operation(
     Startdatum date,
     Incidentnamn varchar(30),
     Slutdatum date,
-    Framgång_andel float(3),
+    Sucess_Rate tinyint(1),
     Gruppledarnamn char(1),
-    Gruppledarnr tinyint(1),
+    Gruppledarnr tinyint(2),
     CHECK (Kodnamntyp LIKE '[A-Z][0-9][0-9]'),
     CHECK ((DAY(Slutdatum) > DAY(Startdatum) AND (YEAR(Slutdatum) = YEAR(Startdatum))) OR (YEAR(Slutdatum) > YEAR(Startdatum))),
     primary key(Kodnamntyp, Startdatum, Incidentnamn),
@@ -137,7 +137,7 @@ create table Operation(
 # Brytit upp Operationer till Operationstyper för att minska redundans
 create table Operationstyper(
 	Kodnamntyp char(3),
-    Operationstyp varchar(40),
+    Operationstyp varchar(40) NOT NULL,
     primary key (Kodnamntyp),
     foreign key (Kodnamntyp) references Operation(Kodnamntyp)
 )engine=innodb;
@@ -174,7 +174,7 @@ create table Fältagenters_hjälpmedel(
 	Hjälpmedelnamn varchar(20),
     Hjälpmedelnr smallint,
     Fältagentnamn char(1),
-    Fältagentnr tinyint(1),
+    Fältagentnr tinyint(2),
     primary key(Hjälpmedelnamn, Hjälpmedelnr, Fältagentnamn, Fältagentnr),
     foreign key(Hjälpmedelnamn, Hjälpmedelnr) references Hjälpmedel(Namn, Nr),
     foreign key(Fältagentnamn, Fältagentnr) references Fältagent(Namn, Nr)
@@ -182,7 +182,7 @@ create table Fältagenters_hjälpmedel(
 
 create table Fältagenter_operationer(
     Fältagentnamn char(1),
-    Fältagentnr tinyint(1),
+    Fältagentnr tinyint(2),
     Kodnamntyp char(1),
     Startdatum date,
     Incidentnamn varchar(30),
@@ -191,23 +191,27 @@ create table Fältagenter_operationer(
     foreign key(Kodnamntyp, Startdatum, Incidentnamn) references Operation(Kodnamntyp, Startdatum, Incidentnamn)
 )engine=innodb;
 
-create table Rapport(
+create table Slutrapport(
     Datum date,
     Titel varchar(30),
     n_uppföljningar int,
     n_rader int,
+    Kommentar varchar(25),
+    Typ varchar(16),
     Fältagentnamn char(1),
-    Fältagentnr tinyint(1),
+    Fältagentnr tinyint(2),
     Gruppledarnamn char(1),
-    Gruppledarnr tinyint(1),
+    Gruppledarnr tinyint(2),
     Incidentnamn varchar(30),
     CHECK(n_uppföljningar >= 0),
+    CHECK((Typ = 'Ledningsrapport') OR (Typ = 'Fältrapport'))
     primary key(Datum, Titel),
     foreign key (Fältagentnamn, Fältagentnr) references Fältagent(Namn, Nr),
     foreign key (Gruppledarnamn, Gruppledarnr) references Gruppledare(Namn, Nr),
     foreign key (Incidentnamn) references Incident(Namn)
 )engine=innodb;
 
-insert into Incident (Namn, Nr, Plats) values ('Katastrof', '505', 'Skövde');
-insert into Operation (Kodnamntyp, Startdatum, Incidentnamn, Slutdatum) values ('ABC', '2015-01-01', 'Katastrof');
-select * from Operation;
+insert into Incident (Namn, Nr, Plats) values ('Ulvahändelsen', 5, 'Töreboda');
+insert into Operation (Kodnamntyp, Startdatum, Slutdatum, Incidentnamn) values ('AB2', '2017-01-01', '2017-05-05', 'Ulvahändelsen');
+select * from Operation
+
