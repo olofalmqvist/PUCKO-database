@@ -32,7 +32,9 @@ create table Incident(
     primary key(Namn)
 )engine=innodb;
 
-# Extra tabell för att lagra ordningsnummer och typ av redskap för olika typer. Typkod är kod för objektet.
+CREATE INDEX INCIDENTNUMMER ON Incident(Nr ASC) USING BTREE;
+
+# Extra tabell för att lagra ordningsnummer och typ av redskap för olika typer. Typkod är kod för objektet. Minskar redundans i Hjälpmedel.
 create table Hjälpmedelstyper(
 	Typkod smallint,
     Ordningsnummer tinyint(2),
@@ -45,10 +47,10 @@ create table Hjälpmedel(
 	Namn varchar(20),
     Nr smallint,
     Beskrivning varchar(30),
-    Typ_n smallint,
+    Typkod smallint,
     Ordningsnummer tinyint(2),
     primary key(Namn, Nr),
-    foreign key(Typ_n, Ordningsnummer) references Hjälpmedelstyper(Typkod, Ordningsnummer)
+    foreign key(Typkod, Ordningsnummer) references Hjälpmedelstyper(Typkod, Ordningsnummer)
 )engine=innodb;
 
 
@@ -104,6 +106,9 @@ create table Fältagent(
     primary key(Namn, Nr)
 )engine=innodb;
 
+# INDEX FOR QUERY SELECT Namn, Nummer, lyckade_operationer, Specialite, Kompetens FROM Fältagent ORDER BY lyckade_operationer; 
+CREATE INDEX Fältagentinfo ON Fältagent(Namn, Nr, Specialite, Kompetens, lyckade_operationer ASC) USING BTREE;
+
 /* Trigger to set Lön to 13k if no value is inserted on Fältagent. */
 DELIMITER //
  
@@ -128,12 +133,16 @@ create table Operation(
     Sucess_Rate tinyint(1),
     Gruppledarnamn char(1),
     Gruppledarnr tinyint(2),
-    CHECK (Kodnamntyp LIKE '[A-Z][0-9][0-9]'),
+    CHECK (Kodnamn LIKE '[A-Z][0-9][0-9]'),
     CHECK ((DAY(Slutdatum) > DAY(Startdatum) AND (YEAR(Slutdatum) = YEAR(Startdatum))) OR (YEAR(Slutdatum) > YEAR(Startdatum))),
     primary key(Kodnamn, Operationstyp, Startdatum, Incidentnamn),
     foreign key(Incidentnamn) references Incident(Namn),
     foreign key (Gruppledarnamn, Gruppledarnr) references Gruppledare(Namn, Nr)
 )engine=innodb;
+
+
+/* # INDEX FOR QUERY SELECT * FROM Operation ORDER BY Slutdatum; 
+CREATE INDEX Operationer_Slutdatum ON Operation(Slutdatum ASC) USING BTREE; */
 
 /*
 # Brytit upp Operationer till Operationstyper för att minska redundans
@@ -218,5 +227,57 @@ create table Slutrapport(
 
 insert into Incident (Namn, Nr, Plats) values ('Ulvahändelsen', 5, 'Töreboda');
 insert into Operation (Startdatum, Slutdatum, Incidentnamn) values ('2017-01-01', '2017-05-05', 'Ulvahändelsen');
-select * from Operation
+select * from Operation;
 
+/* CREATING USER RIGHTS FOR THE SYSTEM */
+
+/*** USER GRUPPLEDARE ***/
+# Create a user for the gruppledare application
+CREATE USER 'gruppledare'@'localhost' IDENTIFIED BY 'password';
+ 
+# Gives select & update access to Fältagent & Fältagenter_operationer tables to gruppledare
+GRANT SELECT, UPDATE ON a15oloal.Fältagent TO gruppledare;
+GRANT SELECT, UPDATE ON a15oloal.Fältagenter_operationer TO gruppledare;
+
+# Gives select & update, insert access to Operation, Slutrapport & Incident tables to gruppledare
+GRANT SELECT, UPDATE, INSERT ON a15oloal.Operation TO gruppledare;
+GRANT SELECT, UPDATE, INSERT ON a15oloal.Incident TO gruppledare;
+GRANT SELECT, INSERT ON a15oloal.Slutrapport TO gruppledare;
+
+# Gives select & update, insert, delete access to Hjälpmedel, operationers_hjälpmedel & Fältagenters_hjälpmedel tables to gruppledare
+GRANT SELECT, UPDATE, INSERT ON a15oloal.Hjälpmedel TO gruppledare;
+GRANT SELECT, UPDATE, INSERT ON a15oloal.Fältagenters_hjälpmedel TO gruppledare;
+GRANT SELECT, UPDATE, INSERT ON a15oloal.operationers_hjälpmedel TO gruppledare;
+ 
+# Create a view that permits access to gruppledare.namn
+CREATE VIEW GRUPPLEDARE AS SELECT Namn, lyckade_operationer, n_operationer, andel_lyckade_op FROM Gruppledare;
+ 
+# Give select permission to gruppledare in the GRUPPLEDARE view
+GRANT SELECT ON a15oloal.GRUPPLEDARE to gruppledare;
+
+/***** USER FÄLTAGENT *****/
+# Create a user for the fältagent application
+CREATE USER 'fältagent'@'localhost' IDENTIFIED BY 'password';
+ 
+ # Create a view that permits access to gruppledare.namn
+CREATE VIEW FÄLT_GRUPPLEDARE AS SELECT Namn FROM Gruppledare; 
+# Gives select access to FÄLT_GRUPPLEDARE VIEW to Fältagent
+GRANT SELECT ON a15oloal.FÄLT_GRUPPLEDARE TO fältagent;
+
+ # Create a view that permits access to historic operations
+CREATE VIEW FÄLT_OPERATION AS SELECT Kodnamn, Operationstyp, Startdatum, Incidentnamn, Slutdatum, Sucess_Rate, Gruppledarnamn 
+FROM Operation WHERE Sucess_Rate = 0 OR Sucess_Rate = 1;
+# Gives select access to FÄLT_OPERATION VIEW to Fältagent
+GRANT SELECT ON a15oloal.FÄLT_OPERATION TO fältagent;
+
+# Gives select access to Incident table to Fältagent
+GRANT SELECT ON a15oloal.Incident TO fältagent;
+
+# Gives access to insert and select Slutrapport table to Fältagent
+GRANT SELECT, INSERT ON a15oloal.Slutrapport TO fältagent;
+
+# Gives select access to Fältagenters_operationer table to Fältagent
+CREATE VIEW TEAM_OPERATION AS SELECT * ON a15oloal.Fältagenters_hjälpmedel TO fältagent
+WHERE Fältagenters_hjälpmedel.Fältagentnamn = user() AND Fältagenters_hjälpmedel.Fältagentnr = user();
+
+GRANT SELECT ON TEAM_OPERATION TO fältagent
