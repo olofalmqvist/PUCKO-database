@@ -93,8 +93,6 @@ create table Fältagent(
     Efternamn varchar(25),
     Kompetens varchar(30) NOT NULL,
     Specialite varchar(30) NOT NULL,
-    n_operationer int,
-    lyckade_operationer int,
     CHECK(Lön >= 12000 AND Lön <= 25000),
     CHECK(NOT(Förnamn = 'Leif Loket' AND Efternamn = 'Olsson') OR NOT (Förnamn = 'Greger' AND Efternamn = 'Puckowitz') OR NOT (Förnamn = 'Greve' AND Efternamn = 'Dracula')),
     CHECK(Nr > 0 AND Nr != 13 AND Nr <= 99),
@@ -102,8 +100,8 @@ create table Fältagent(
     primary key(Namn, Nr)
 )engine=innodb;
 
-# INDEX FOR QUERY SELECT Namn, Nummer, lyckade_operationer, Specialite, Kompetens FROM Fältagent ORDER BY lyckade_operationer; 
-CREATE INDEX Fältagentinfo ON Fältagent(Namn, Nr, Specialite, Kompetens, lyckade_operationer ASC) USING BTREE;
+# INDEX FOR QUERY SELECT Namn, Nummer, Specialite, Kompetens FROM Fältagent ORDER BY Kompetens; 
+CREATE INDEX Fältagentinfo ON Fältagent(Namn, Nr, Specialite, Kompetens ASC) USING BTREE;
 
 /* Trigger to set Lön to 13k if no value is inserted on Fältagent. */
 DELIMITER //
@@ -234,6 +232,16 @@ create table Incident_logg(
     primary key(Namn)
 )engine=innodb;
 
+/*Loggar nya incidenter*/
+DELIMITER //
+CREATE TRIGGER Incident_Logg AFTER INSERT ON Incident
+FOR EACH ROW BEGIN 
+   INSERT INTO Incident_logg(Anvandarnamn,Tid,Namn,Nr,Plats) 
+      values(USER(),NOW(),NEW.Namn,NEW.Nr,NEW.Plats);
+END;
+// DELIMITER ;
+
+/* Incident "Ulvahändelsen" */
 insert into Gruppledare (Namn, Nr, Lön, Förnamn, Efternamn) values ('A', 12, 26000, 'Richard', 'Lionmane');
 insert into Fältagent (Namn, Nr, Lön, Förnamn, Efternamn, Specialite, Kompetens) values ('D', 18, 15500, 'Siegfried', 'Schultz', 'Krypskytte', 'Hög');
 insert into Hjälpmedelstyper (Typkod, Ordningsnummer, Typ) values (5566, 1, 'Långdistansgevär');
@@ -249,6 +257,7 @@ insert into Hjälpmedel (Namn, Nr, Beskrivning, Typkod, Ordningsnummer) values (
 insert into Fältagenters_hjälpmedel (Hjälpmedelnamn, Hjälpmedelnr, Fältagentnamn, Fältagentnr) values ('AXD Sniper', 425, 'C', 4);
 insert into Operation_Pågående (Operationstyp, Startdatum, Slutdatum, Incidentnamn, Gruppledarnamn, Gruppledarnr, Kodnamn, Fältagentnamn, Fältagentnr, Hjälpmedelnamn, Hjälpmedelnr) values ('Uppstädningsoperation', '2017-01-01', '2017-02-05', 'Ulvahändelsen', 'B', 2, 'ABC', 'C', 4, 'AXD Sniper', 425);
 
+/* Incident "Läcköläckan" */
 insert into Gruppledare (Namn, Nr, Lön, Förnamn, Efternamn) values ('T', 8, 8000, 'Wolfgang', 'Vlk');
 insert into Fältagent (Namn, Nr, Lön, Förnamn, Efternamn, Specialite, Kompetens) values ('R', 6, 5000, 'Frida', 'Ekdahl', 'Manipulation', 'Medel');
 insert into Hjälpmedelstyper (Typkod, Ordningsnummer, Typ) values (23, 1, 'Sanningsserum');
@@ -263,6 +272,7 @@ insert into Operation_Avslutad (Operationstyp, Startdatum, Slutdatum, Incidentna
 
 insert into Slutrapport (Datum, Titel, n_rader, Kommentar, Fältagentnamn, Fältagentnr, Gruppledarnamn, Gruppledarnr, Incidentnamn) values ('2011-06-29', 'Läcköchefen förhörd', 10, 'All info erhölls', 'R', 6, 'T', 8, 'Läcköläckan');
 
+/* Incident "Annunakimötet" */
 insert into Gruppledare (Namn, Nr, Lön, Förnamn, Efternamn) values ('E', 14, 29550, 'Hermann', 'Brandt');
 insert into Fältagent (Namn, Nr, Lön, Förnamn, Efternamn, Specialite, Kompetens) values ('G', 89, 22300, 'Freja', 'Stenhammar', 'Strategisk analys', 'Hög');
 insert into Fältagent (Namn, Nr, Lön, Förnamn, Efternamn, Specialite, Kompetens) values ('G', 88, 20100, 'Sven', 'Persson', 'Personskydd', 'Medel');
@@ -277,6 +287,12 @@ insert into Operation_Avslutad (Operationstyp, Startdatum, Slutdatum, Incidentna
 insert into Operation_Avslutad (Operationstyp, Startdatum, Slutdatum, Incidentnamn, Gruppledarnamn, Gruppledarnr, Kodnamn, Fältagentnamn, Fältagentnr, Hjälpmedelnamn, Hjälpmedelnr, Sucess_Rate) values ('Diplomatiskt möte', '2016-07-15', '2016-07-16', 'Annunakimötet', 'E', 14, 'TRI', 'G', 88, 'Pistol 88', 1011, 1);
 
 insert into Slutrapport (Datum, Titel, n_rader, Kommentar, Fältagentnamn, Fältagentnr, Gruppledarnamn, Gruppledarnr, Incidentnamn) values ('2011-07-17', 'Möte med Annunaki', 20, 'Inga fler besök', 'G', 89, 'E', 14, 'Annunakimötet');
+
+/* Incident "Kinnekullechocken */
+insert into Incident (Namn, Nr, Plats) values ('Kinnekullechocken', 1288, 'Götene');
+insert into Operation_Avslutad (Operationstyp, Startdatum, Slutdatum, Incidentnamn, Gruppledarnamn, Gruppledarnr, Kodnamn, Fältagentnamn, Fältagentnr, Hjälpmedelnamn, Hjälpmedelnr, Sucess_Rate) values ('Vittnestystnad', '2013-12-24', '2014-01-2', 'Kinnekullechocken', 'E', 14, 'XXT', 'G', 88, 'Pistol 88', 1011, 0);
+
+insert into Slutrapport (Datum, Titel, n_rader, Kommentar, Fältagentnamn, Fältagentnr, Gruppledarnamn, Gruppledarnr, Incidentnamn) values ('2014-01-09', 'Läcka till press', 10, 'SvD skrev artikel', 'G', 88, 'E', 14, 'Kinnekullechocken');
 
 /*
 select * from Gruppledare;
@@ -295,7 +311,7 @@ SELECT * FROM Slutrapport;
 
 /*** USER GRUPPLEDARE ***/
 # Create a user for the gruppledare application
-# drop user 'gruppledare';
+drop user 'gruppledare'@'localhost';
 flush privileges;
 CREATE USER 'gruppledare'@'localhost' IDENTIFIED BY 'password';
  
@@ -322,6 +338,7 @@ GRANT SELECT ON a15oloal.GRUPPLEDARE to gruppledare;
 
 /***** USER FÄLTAGENT *****/
 # Create a user for the fältagent application
+drop user 'fältagent'@'localhost';
 CREATE USER 'fältagent'@'localhost' IDENTIFIED BY 'password';
  
  # Create a view that permits access to gruppledare.namn
@@ -339,7 +356,7 @@ GRANT SELECT ON a15oloal.FÄLT_OPERATION TO fältagent;
 CREATE VIEW 
 	HISTORISKA_INCIDENTER
 AS
-	SELECT(Namn, Incidentnamn)
+	SELECT Namn, Incidentnamn
     FROM Incident, Operation_Avslutad
     WHERE Incident.Namn = Operation_Avslutad.Incidentnamn;
 
@@ -353,11 +370,31 @@ GRANT SELECT, INSERT ON a15oloal.Slutrapport TO fältagent;
 /*CREATE VIEW TEAM_OPERATION AS SELECT * ON a15oloal.Fältagenters_hjälpmedel TO fältagent
 WHERE Fältagenters_hjälpmedel.Fältagentnamn = user() AND Fältagenters_hjälpmedel.Fältagentnr = user(); */
 
-/*Loggar nya incidenter*/
+CREATE VIEW
+	AGENT_HÄRLEDD
+AS
+	SELECT Fältagentnamn, Fältagentnr, CONCAT(CAST((AVG(Sucess_Rate)*100) as DECIMAL(3, 0)), ' %') AS 'Lyckade Operationer', 
+    COUNT(Kodnamn) AS 'Antal Operationer'
+    FROM Operation_Avslutad
+    GROUP BY Fältagentnr;
+
+select * from Fältagent;
+select * from Operation_Avslutad;
+select * from AGENT_HÄRLEDD
+
+/* Procedur för att snabbt höja lön */
 DELIMITER //
-CREATE TRIGGER Incident_Logg AFTER INSERT ON Incident
-FOR EACH ROW BEGIN 
-   INSERT INTO Incident_logg(Anvandarnamn,Tid,Incidentnamn,Incidentnr,Plats) 
-      values(USER(),NOW(),NEW.Incidentnamn,NEW.Incidentnr,NEW.Plats);
+
+CREATE PROCEDURE BONUS(procent TINYINT, gräns int)
+
+BEGIN
+	SET SQL_SAFE_UPDATES = 0;
+	UPDATE Fältagent
+	SET Lön = Lön + (Lön * (procent/100))
+    WHERE Lön < gräns;
 END;
-// DELIMITER ;
+//
+
+DELIMITER ;
+
+CALL BONUS(10, 60000);
